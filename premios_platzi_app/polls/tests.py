@@ -1,6 +1,7 @@
 import datetime
 
 from django.test import TestCase
+from django.urls.base import reverse
 from django.utils import timezone
 
 from .models import Question
@@ -27,3 +28,21 @@ class QuestionModelTests(TestCase):
         time = timezone.now()
         present_question = Question(question_text="Quien es el mejor Course Director de Platzi", pub_date=time)
         self.assertIs(present_question.was_published_recently(), True)
+
+class QuestionIndexViewTests(TestCase):
+    
+    def test_no_question(self):
+        """If no question exist, an appropiate message is display"""
+        response = self.client.get(reverse("polls:index")) # client es un modulo de django que nos deja hacer peticiones http
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No polls are available")
+        self.assertQuerysetEqual(response.context["latest_question_list"],[])
+        
+    def test_no_future_question_are_display(self):
+        """ If a future question is create in the database,
+            this question is not shown until his pub_date is equal to the present     
+        """
+        response = self.client.get(reverse("polls:index"))
+        time = timezone.now() + datetime.timedelta(days=30)
+        future_question = Question(question_text="Quien es el mejor Course Director de Platzi", pub_date=time)
+        self.assertNotIn(future_question, response.context["latest_question_list"])
