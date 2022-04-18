@@ -7,6 +7,15 @@ from django.utils import timezone
 from .models import Question
 
 
+def  create_question(question_text, days):
+    """
+    Create a question with the given "question_text", and published the given
+    number of days offset to now (negative for questions published inthe past,
+    positive for question that yet to be published)
+    """
+    time = timezone.now() + datetime.timedelta(days=days)
+    return Question.objects.create(question_text=question_text, pub_date=time)
+
 # Create your tests here.
 # se van a testear modelos y vistas
 class QuestionModelTests(TestCase):
@@ -28,7 +37,6 @@ class QuestionModelTests(TestCase):
         time = timezone.now()
         present_question = Question(question_text="Quien es el mejor Course Director de Platzi", pub_date=time)
         self.assertIs(present_question.was_published_recently(), True)
-
 class QuestionIndexViewTests(TestCase):
     
     def test_no_question(self):
@@ -38,11 +46,29 @@ class QuestionIndexViewTests(TestCase):
         self.assertContains(response, "No polls are available")
         self.assertQuerysetEqual(response.context["latest_question_list"],[])
         
-    def test_no_future_question_are_display(self):
-        """ If a future question is create in the database,
-            this question is not shown until his pub_date is equal to the present     
+# def test_no_future_question_are_display(self):
+#     """ If a future question is create in the database,
+#         this question is not shown until his pub_date is equal to the present     
+#     """
+#     response = self.client.get(reverse("polls:index"))
+#     time = timezone.now() + datetime.timedelta(days=30)
+#     future_question = Question(question_text="Quien es el mejor Course Director de Platzi", pub_date=time)
+#     self.assertNotIn(future_question, response.context["latest_question_list"])
+    
+    def test_future_question(self):
         """
+        Questions with a pub_date in the future aren't displayed on the index page
+        """
+        create_question("Future question", days=30)
         response = self.client.get(reverse("polls:index"))
-        time = timezone.now() + datetime.timedelta(days=30)
-        future_question = Question(question_text="Quien es el mejor Course Director de Platzi", pub_date=time)
-        self.assertNotIn(future_question, response.context["latest_question_list"])
+        self.assertContains(response, "No polls are available")
+        self.assertQuerysetEqual(response.context["latest_question_list"], [])
+        
+    def test_past_questions(self):
+        """
+        Questions with a pub_date in the past aren't displayed on the index page
+        """
+        question = create_question("Past question", days=-10)
+        response = self.client.get(reverse("polls:index"))
+        self.assertQuerysetEqual(response.context["latest_question_list"], [question])
+        
